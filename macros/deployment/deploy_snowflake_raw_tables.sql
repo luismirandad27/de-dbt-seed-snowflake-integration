@@ -102,6 +102,6 @@
 
     {% endfor %}
 
-    {{ log("USER LOG:  Deployment Snowflake Data Cloud - Creating Tables - SUCCESS") }}
+    {{ log("USER LOG:  Deployment Snowflake Data Cloud - Creating Tables - FINISHED") }}
 
 {%- endmacro %}

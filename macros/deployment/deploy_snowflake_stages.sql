@@ -79,7 +79,7 @@
 
         {% endfor %}
 
-        {{ log("USER LOG: [" ~ cp ~ " - " ~ env ~ "] Deployment Snowflake Stages successfully!") }}
+        {{ log("USER LOG: Deployment Snowflake Stages - FINISHED!") }}
 
     {% else %}
 

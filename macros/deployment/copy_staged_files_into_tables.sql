@@ -1,15 +1,15 @@
-{% macro copy_staged_files_into_tables(node) -%}
+{% macro copy_staged_files_into_tables(node, schema = 'landing') -%}
 
     -- depends_on: {{ ref('seed_snowflake_stages') }}
     -- depends_on: {{ ref('seed_snowflake_raw_table_columns') }}
 
     {# Create the array of storage stages for the cloud storage provider  #}
     {%- set env= env_var('DBT_ENV_NAME') -%}
-    {%- set database_name = 'db_' ~ env -%}
+    {%- set database_name = 'db_' ~ env ~ '.' ~ schema -%}
 
     {# Creating the Storage Integration #}
     {%- set query -%}
-        select * from {{ ref('seed_snowflake_stages') }} where flg_move_data = 1;
+        select * from {{ ref('seed_snowflake_stages') }} where flg_active = 1 and flg_move_data = 1;
     {%- endset -%}
 
     {%- set res_snowflake_stages = run_query(query) -%}
@@ -17,53 +17,156 @@
     {# Create the Snowflake Stages #}
     {%- for row in res_snowflake_stages -%}
 
-        {%- set file_format = row[2] -%}
+        {%- set id = row[0] -%}
 
-        {%- set stage_name = 'landing_stage_' ~ storage_prov ~ '_' ~ row[2] ~ '_' ~ env ~ '_' ~ row[3] -%}
+        {%- set file_format = row[3] -%}
 
-        {%- set table_name = row[0] ~ '_' ~ row[1] ~ '_' ~ row[2] ~ '_' ~ row[3] -%}
+        {%- set stage_name = 'landing_stage_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
 
-        {%- log('Copying table ' ~ table_name ~ '...')  -%}
+        {%- set table_name = row[1] ~ '_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ row[4] -%}
+
+        {{ log('Copying table ' ~ table_name ~ '...')  }}
 
         {%- if file_format == 'json' -%}
 
-        {%- elif file_format = 'csv' -%}
+            {# The data is an array of JSON objects? #}
+            {%- set has_outer_array = row[6]-%}
+
+            {%- set drop_file_format_query -%}
+                drop file format if exists {{ database_name }}.json_format_array_temp_{{row[4]}}
+            {%- endset -%}
+
+            {%- set temp_file_format = run_query(drop_file_format_query) -%}
+
+            {# Create an json format adhoc for this copy procedure #}
+            {%- set create_file_format_query -%}
+                create file format {{ database_name }}.json_format_array_temp_{{row[4]}}
+                type = 'JSON'
+                {%- if has_outer_array == 1 -%}
+                    strip_outer_array = true
+                {%- endif -%}    
+            {%- endset -%}
+
+            {%- set temp_file_format = run_query(create_file_format_query) -%}
+            
+            {%- set copy_into_query -%}
+                {# Run copy into #}
+                copy into {{ database_name }}.{{ table_name }} (
+                    metadata_filename,
+                    metadata_file_row_number,
+                    metadata_file_content_key,
+                    metadata_file_last_modified,
+                    metadata_start_scan_time,
+                    json_object,
+                    updated_at
+                )
+                from
+                    (
+                        SELECT
+                            METADATA$FILENAME as metadata_filename,
+                            METADATA$FILE_ROW_NUMBER as METADATA_FILE_ROW_NUMBER,
+                            METADATA$FILE_CONTENT_KEY as METADATA_FILE_CONTENT_KEY,
+                            METADATA$FILE_LAST_MODIFIED as METADATA_FILE_LAST_MODIFIED,
+                            METADATA$START_SCAN_TIME as METADATA_START_SCAN_TIME,
+                            t.$1,
+                            current_timestamp()
+                        FROM
+                            @{{ database_name }}.{{ stage_name }} (file_format => {{ database_name }}.json_format_array_temp_{{row[4]}} ) t
+                    );
+            {%- endset -%}
+
+            {%- set copy_into_temp = run_query(copy_into_query) -%}
+
+            {%- set drop_file_format_query -%}
+                drop file format if exists {{ database_name }}.json_format_array_temp_{{row[4]}}
+            {%- endset -%}
+
+            {%- set temp_file_format = run_query(drop_file_format_query) -%}
+
+            {{ log('USER LOG: Table '~ table_name ~ ' updated.')}}
+            
+        {%- elif file_format == 'csv' -%}
+
+            {# Delimiter #}
+            {%- set delimiter = row[5]-%}
+
+            {# The data is an array of JSON objects? #}
+            {%- set has_outer_array = row[6]-%}
+
+            {%- set drop_file_format_query -%}
+                drop file format if exists {{ database_name }}.csv_format_array_temp_{{row[4]}}
+            {%- endset -%}
+
+            {%- set temp_file_format = run_query(drop_file_format_query) -%}
+
+            {# Create an csv format adhoc for this copy procedure #}
+            {%- set create_file_format_query -%}
+                create file format {{ database_name }}.csv_format_array_temp_{{row[4]}}
+                type = 'CSV'
+                field_delimiter = '{{ delimiter }}'
+                record_delimiter = '\n'
+                skip_header = 1
+                field_optionally_enclosed_by = '"'
+            {%- endset -%}
+
+            {%- set temp_file_format = run_query(create_file_format_query) -%}
+
+            {# Query to list all columns for a table #}
+            {%- set query_information_schema -%}
+
+                select
+                    listagg( '$' || column_position || ', ') within group (order by column_position) as concatenated_columns
+                from
+                    {{ ref('seed_snowflake_raw_table_columns') }}
+                where 
+                    id = '{{ id }}'
+
+            {%- endset -%}
+
+            {%- set res_snowflake_table_cols = run_query(query_information_schema) -%}
+
+            {%- for row_col in res_snowflake_table_cols -%}
+
+                {# Create query #}
+                {%- set copy_stage_query -%}
+
+                    copy into {{ database_name }}.{{ table_name }} 
+                    from
+                        (
+                            SELECT
+                                METADATA$FILENAME as metadata_filename,
+                                METADATA$FILE_ROW_NUMBER as METADATA_FILE_ROW_NUMBER,
+                                METADATA$FILE_CONTENT_KEY as METADATA_FILE_CONTENT_KEY,
+                                METADATA$FILE_LAST_MODIFIED as METADATA_FILE_LAST_MODIFIED,
+                                METADATA$START_SCAN_TIME as METADATA_START_SCAN_TIME,
+                                {{row_col[0]}}
+                                current_timestamp()
+                            FROM
+                                @{{ database_name }}.{{ stage_name }} (file_format => {{ database_name }}.csv_format_array_temp_{{row[4]}} ) t
+                        );
+
+                {%- endset -%}
+
+                {%- set res_snowflake_stage_copy = run_query(copy_stage_query) -%}
+
+            {%- endfor -%}
+
+            {%- set drop_file_format_query -%}
+                drop file format if exists {{ database_name }}.csv_format_array_temp_{{row[4]}}
+            {%- endset -%}
+
+            {%- set temp_file_format = run_query(drop_file_format_query) -%}
+
+            {{ log('USER LOG: Table '~ table_name ~ ' updated.')}}
 
         {%- else -%}
 
+            {{ log('USER LOG: Table '~ table_name ~ ' not updated.')}}
+
         {%- endif -%}
-
-        {# Query to list all columns for a table #}
-        {%- set query_information_schema -%}
-
-            select
-                listagg( '$' || column_position || ', ') within group (order by column_position) as concatenated_columns
-            from
-                {{ ref('seed_snowflake_raw_table_columns') }}
-            where 
-                id = '{{ id }}'
-
-        {%- endset -%}
-
-        {%- set res_snowflake_table_cols = run_query(query_information_schema) -%}
-
-        {# Create query #}
-        {%- set copy_stage_query -%}
-
-            copy into {{database_name}}.landing.{{table_name}}({{columns_str_schema}},updated_at)
-            from (
-                select {{columns_str_select}},current_timestamp()
-                from @{{database_name}}.landing.{{stage_name}}
-            )
-            on_error = 'continue'
-            file_format = {{database_name}}.landing.{{storage_prov}}_{{file_format}}_format
-
-        {%- endset -%}
-
-        {%- set res_snowflake_stage_copy = run_query(copy_stage_query) -%}
 
     {% endfor %}
 
-    [{{ cp }} - {{ env }} ] Deployment Snowflake Data Cloud - Migrating Data - SUCCESS
+    {{ log("USER LOG: Deployment Snowflake Data Cloud - Migrating Data - FINISHED") }}
 
 {% endmacro %}
