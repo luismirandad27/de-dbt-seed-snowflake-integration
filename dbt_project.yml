@@ -38,3 +38,4 @@ clean-targets:         # directories to be removed by `dbt clean`
 seeds:
   dbt_demo:
     +delimiter: ";"
+    +schema: landing
