@@ -22,7 +22,6 @@
         {# ################################ #}
         {# Creating the Storage Integration #}
         {# ################################ #}
-
         {%- set storage_int_name = storage_prov ~ '_stg_int_' ~ env -%}
 
         {# Creating the Storage Integration #}
@@ -43,14 +42,14 @@
         {%- set cloud_location_str = cloud_location | join(',\n') -%}
 
         {# Create the Snowflake Storage Integration #}
-        {%- set query_stg_int -%}
+        {%- set update_stg_int -%}
             
             alter storage integration {{ storage_int_name }}
             set storage_allowed_locations = ({{ cloud_location_str }});
 
         {%- endset -%}
 
-        {%- set result = run_query(query_stg_int) -%}
+        {%- set result = run_query(update_stg_int) -%}
 
         {# ########################### #}
         {# Create the Snowflake Stages #}
@@ -59,15 +58,15 @@
 
             {%- set stage_name = 'landing_stage_' ~ storage_prov ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
 
-            {%- set query_drop_stage -%}
+            {%- set drop_stage -%}
                 drop stage if exists {{ database_name }}{{ stage_name }}
             {% endset %}
 
-            {%- set result = run_query(query_drop_stage) -%}
+            {%- set result = run_query(drop_stage) -%}
 
             {%- set url_name = "'" ~ bucket_name ~ row[1] ~ '_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ row[4] ~ '/' ~ "'" -%}    
 
-            {%- set query_create_stage -%}
+            {%- set create_stage -%}
 
                 create stage {{ database_name }}{{stage_name}}
                 url = {{ url_name }}
@@ -75,7 +74,7 @@
 
             {% endset %}
 
-            {%- set result = run_query(query_create_stage) -%}
+            {%- set result = run_query(create_stage) -%}
 
         {% endfor %}
 

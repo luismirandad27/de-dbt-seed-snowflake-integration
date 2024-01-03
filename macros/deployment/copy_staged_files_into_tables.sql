@@ -21,7 +21,7 @@
 
         {%- set file_format = row[3] -%}
 
-        {%- set stage_name = 'landing_stage_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
+        {%- set stage_name = {{ schema }} ~ '_stage_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
 
         {%- set table_name = row[1] ~ '_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ row[4] -%}
 
@@ -32,14 +32,14 @@
             {# The data is an array of JSON objects? #}
             {%- set has_outer_array = row[6]-%}
 
-            {%- set drop_file_format_query -%}
+            {%- set drop_file_format -%}
                 drop file format if exists {{ database_name }}.json_format_array_temp_{{row[4]}}
             {%- endset -%}
 
-            {%- set temp_file_format = run_query(drop_file_format_query) -%}
+            {%- set temp_file_format = run_query(drop_file_format) -%}
 
             {# Create an json format adhoc for this copy procedure #}
-            {%- set create_file_format_query -%}
+            {%- set create_file_format -%}
                 create file format {{ database_name }}.json_format_array_temp_{{row[4]}}
                 type = 'JSON'
                 {%- if has_outer_array == 1 -%}
@@ -47,9 +47,9 @@
                 {%- endif -%}    
             {%- endset -%}
 
-            {%- set temp_file_format = run_query(create_file_format_query) -%}
+            {%- set temp_file_format = run_query(create_file_format) -%}
             
-            {%- set copy_into_query -%}
+            {%- set copy_into_data -%}
                 {# Run copy into #}
                 copy into {{ database_name }}.{{ table_name }} (
                     metadata_filename,
@@ -75,13 +75,13 @@
                     );
             {%- endset -%}
 
-            {%- set copy_into_temp = run_query(copy_into_query) -%}
+            {%- set copy_into_temp = run_query(copy_into_data) -%}
 
-            {%- set drop_file_format_query -%}
+            {%- set drop_file_format -%}
                 drop file format if exists {{ database_name }}.json_format_array_temp_{{row[4]}}
             {%- endset -%}
 
-            {%- set temp_file_format = run_query(drop_file_format_query) -%}
+            {%- set temp_file_format = run_query(drop_file_format) -%}
 
             {{ log('USER LOG: Table '~ table_name ~ ' updated.')}}
             
@@ -93,14 +93,14 @@
             {# The data is an array of JSON objects? #}
             {%- set has_outer_array = row[6]-%}
 
-            {%- set drop_file_format_query -%}
+            {%- set drop_file_format -%}
                 drop file format if exists {{ database_name }}.csv_format_array_temp_{{row[4]}}
             {%- endset -%}
 
-            {%- set temp_file_format = run_query(drop_file_format_query) -%}
+            {%- set temp_file_format = run_query(drop_file_format) -%}
 
             {# Create an csv format adhoc for this copy procedure #}
-            {%- set create_file_format_query -%}
+            {%- set create_file_format -%}
                 create file format {{ database_name }}.csv_format_array_temp_{{row[4]}}
                 type = 'CSV'
                 field_delimiter = '{{ delimiter }}'
@@ -109,10 +109,10 @@
                 field_optionally_enclosed_by = '"'
             {%- endset -%}
 
-            {%- set temp_file_format = run_query(create_file_format_query) -%}
+            {%- set temp_file_format = run_query(create_file_format) -%}
 
             {# Query to list all columns for a table #}
-            {%- set query_information_schema -%}
+            {%- set query_table_columns -%}
 
                 select
                     listagg( '$' || column_position || ', ') within group (order by column_position) as concatenated_columns
@@ -123,12 +123,12 @@
 
             {%- endset -%}
 
-            {%- set res_snowflake_table_cols = run_query(query_information_schema) -%}
+            {%- set res_snowflake_table_cols = run_query(query_table_columns) -%}
 
             {%- for row_col in res_snowflake_table_cols -%}
 
                 {# Create query #}
-                {%- set copy_stage_query -%}
+                {%- set copy_stage_data -%}
 
                     copy into {{ database_name }}.{{ table_name }} 
                     from
@@ -147,15 +147,15 @@
 
                 {%- endset -%}
 
-                {%- set res_snowflake_stage_copy = run_query(copy_stage_query) -%}
+                {%- set res_snowflake_stage_copy = run_query(copy_stage_data) -%}
 
             {%- endfor -%}
 
-            {%- set drop_file_format_query -%}
+            {%- set drop_file_format -%}
                 drop file format if exists {{ database_name }}.csv_format_array_temp_{{row[4]}}
             {%- endset -%}
 
-            {%- set temp_file_format = run_query(drop_file_format_query) -%}
+            {%- set temp_file_format = run_query(drop_file_format) -%}
 
             {{ log('USER LOG: Table '~ table_name ~ ' updated.')}}
 

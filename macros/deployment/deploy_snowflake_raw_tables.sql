@@ -7,13 +7,13 @@
 
     {# Getting the list of sources to create #}
     {%- set query -%}
-    select 
-        id,
-        source_file_type,
-        type_stage || '_' || cloud_storage_provider || '_' || source_file_type || '_' || stage_name_suffix as table_name
-    from {{ ref('seed_snowflake_stages') }} 
-    where   cloud_storage_provider = '{{ storage_prov }}' and 
-            flg_recreate = 1
+        select 
+            id,
+            source_file_type,
+            type_stage || '_' || cloud_storage_provider || '_' || source_file_type || '_' || stage_name_suffix as table_name
+        from {{ ref('seed_snowflake_stages') }} 
+        where   cloud_storage_provider = '{{ storage_prov }}' and 
+                flg_recreate = 1
     {%- endset -%}
 
     {%- set res_snowflake_tables = run_query(query) -%}
@@ -26,15 +26,15 @@
         {%- set table_name = row[2] -%}
 
         {# Re-create table query #}
-        {%- set drop_table_query -%}
+        {%- set drop_table -%}
             drop table if exists {{database_name}}.landing.{{table_name}}
         {%- endset -%}
 
-        {%- set res_snowflake_stage_drop = run_query(drop_table_query) -%}
+        {%- set res_snowflake_stage_drop = run_query(drop_table) -%}
 
         {%- if source_file_type == 'json' -%}
 
-            {%- set query -%}
+            {%- set create_raw_table -%}
                 
                 {# It's not required to get the list of columns #}
                 create or replace table {{database_name}}.landing.{{table_name}}
@@ -50,7 +50,7 @@
 
             {%- endset -%}
 
-            {%- set temp = run_query(query) -%}
+            {%- set temp = run_query(create_raw_table) -%}
 
             {{ log('USER LOG: Creating table ' ~ table_name ~ '...') }}
 
@@ -71,9 +71,9 @@
 
             {%- for row in columns_csv -%}
 
-                {%- set  str_columns = row[0] -%}
+                {%- set str_columns = row[0] -%}
 
-                {%- set query -%}
+                {%- set create_table -%}
 
                     create or replace table {{database_name}}.landing.{{table_name}}
                     (   
@@ -88,7 +88,7 @@
 
                 {%- endset -%}
 
-                {%- set temp = run_query(query) -%}
+                {%- set temp = run_query(create_table) -%}
 
             {%- endfor -%}
 
