@@ -1,18 +1,25 @@
 # Mastering CI with dbt Seeds featuring Snowflake
 
-On this repository, we can leverage the application of dbt seeds in a way that we can configure and optimize the CI process to maintain our Snowflake stages and efficiently update our raw data.
+This repository offers an innovative approach to applying dbt seeds, specifically tailored for enhancing and fine-tuning the CI processes. It focuses on effectively managing Snowflake stages and streamlining the updating of raw data.
 
-Some key benefits of this project:
+Highlighted advantages of this initiative include:
 
-- Automatically update the **snowflake storage integrations with** different cloud storage providers (S3, GCP Cloud Storage, Azure Blob Storage).
-- Maintain Snowflake stages dynamically.
-- Create tables that will receive the raw data from the external data sources.
-- If we have data that only needs to be loaded once, this dbt project contains a macro that copy the data from csv or JSON files.
+- Seamless synchronization of **Snowflake storage integrations** with various cloud storage services (S3, GCP Cloud Storage, Azure Blob Storage).
+- Dynamic management of **Snowflake stages**.
+- Establishment of tables designated for receiving **raw data** from diverse external data sources.
+- Inclusion of a specialized dbt macro for one-time data loading, accommodating data from CSV or **JSON** files.
 
-### If you want to use it, you need to complete the following requirements:
+### If you want to use it, you need to follow these requirements:
 
-1. You need to have your dbt project already set (obviously) with an integration with GitHub and Snowflake.
-2. Make a few adjustment on your **dbt_project.yml** to allow using special characters on the dbt seed (specially for the comma):
+1. Firstly, ensure that your dbt project is already established, with integrations in place for both GitHub and Snowflake.
+2. On snowflake, you might have 3 databases:
+    - `db_dev`: environment where you can test your dbt pipelines
+    - `db_qa`: environment where you can test your deployment
+    - `db_prod`: environment for your final pipelines.
+    
+    If you want to use another name, you can change the prefix, but I suggest to keep the environment name (dev, qa, prod) due we can use environmental variables on dbt cloud to manage the deployments.
+3. For raw data, create an schema on each database called `landing`. This schema will store all the tables connected to external sources, you can use another name instead.
+4. Modify your dbt_project.yml file to enable the use of special characters in dbt seed, particularly focusing on accommodating the comma character:
     
     ```yaml
     seeds:
@@ -20,15 +27,15 @@ Some key benefits of this project:
         +delimiter: ";"
     ```
     
-3. The following are the seeds you need to create:
+5. The following are the seeds you need to create:
 
     **seed_snowflake_stages**
     
-    Contains the list of the stages, dbt will maintain on every CI job. The following table shows the seed’s columns:
+    Contains the list of the snowflake stages dbt will maintain on every CI job (deployment). The following table show the seed’s columns:
 
     | Column                 | Description                                                                                                                                                 |
     |------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    | id                     | Id of the stage. Should be unique                                                                                                                           |
+    | id                     | Id of the stage. Should be unique.                                                                                                                         |
     | type_stage             | Type of data to be staged. You can customize in a manner you would understand the purpose of the data. In this case, due it’s raw data, the value is “raw”. |
     | cloud_storage_provider | Values allowed: aws, gcp, azure.                                                                                                                            |
     | source_file_type       | File format file. Values allowed: csv, json.                                                                                                                |
@@ -41,7 +48,7 @@ Some key benefits of this project:
 
     **seed_snowflake_raw_table_columns**
 
-    For csv data sources, this seed table will have the list of columns for each table source: The following table shows the seed’s columns:
+    For csv data sources, this seed table will have the list of columns for each table source. The following table shows the seed’s columns:
 
     | Column          | Description                                                                   |
     |-----------------|-------------------------------------------------------------------------------|
@@ -51,30 +58,30 @@ Some key benefits of this project:
 
 ### **Use cases for this demo**
 
-Once you have your dbt project set with the seeds you can use the following macro based on each use case described. Don’t forget to copy the macros on the **/macros** folder.
+After setting up your dbt project with the necessary seeds, you can apply the provided macro tailored to each specific use case mentioned. Remember to place the macros in the **/macros** directory.
 
 1. **Create Snowflake Stages dynamically**
     
-    The macro ***deploy_snowflake_stages*** will update the storage integration with an specific cloud storage provider. It will create (or recreate) the snowflake stages according to the ******************************************seed_snowflake_stages****************************************** seed with *flg_active* 1.
+    The macro ***deploy_snowflake_stages*** will update the storage integration for an specific cloud storage provider. It will create (or recreate) the snowflake stages according to the **seed_snowflake_stages** seed with *flg_active* 1.
     
     ```bash
-    dbt run-operation deploy_snowflake_stages --args '{storage_prov: aws}'
+    dbt run-operation deploy_snowflake_stages --args '{storage_prov: aws, landing_schema_name: landing}'
     ```
     
 2. **Create Snowflake tables associated to Stages**
     
-    The ***deploy_snowflake_raw_tables*** macro that will create tables in the snowflake schema related to the landing zone of the Data Cloud architecture. It will create (or recreate) the tables according to the ******************************************seed_snowflake_stages****************************************** seed with *flg_active* 1. For csv files, the tables are going to contain the columns referred in the ********************************seed_snowflake_raw_tables_columns******************************** seed.
+    The ***deploy_snowflake_raw_tables*** macro will create tables in the snowflake schema for raw data of the Data Cloud architecture. It will create (or recreate) the tables according to the **seed_snowflake_stages** seed with *flg_active* 1. For csv files, the tables are going to contain the columns referred in the **seed_snowflake_raw_tables_columns** seed.
     
     ```bash
-    dbt run-operation deploy_snowflake_raw_tables --args '{storage_prov: aws}'
+    dbt run-operation deploy_snowflake_raw_tables --args '{storage_prov: aws, landing_schema_name: landing}'
     ```
     
 3. **Copy data from Snowflake stages to tables automatically**
     
-    The ***copy_staged_files_into_tables*** will help you on that. Based on the schema defined in the parameters, it will look for all tables that should be updated in the deployment (CI) job process based on the *************flg_move_data************* column in the ************seed_snowflake_stages************ seed.
+    The ***copy_staged_files_into_tables*** will help you on that. Based on the schema defined in the parameters, it will look for all tables that should be updated in the deployment (CI) job process based on the **flg_move_data** column in the **seed_snowflake_stages** seed.
     
     ```bash
-    dbt run-operation copy_staged_files_into_tables --args '{schema: landing}'
+    dbt run-operation copy_staged_files_into_tables --args '{schema_name: landing}'
     ```
     
 
@@ -82,7 +89,7 @@ Once you have your dbt project set with the seeds you can use the following macr
 
 ### Future Work:
 
-This is an initial work that it’s already working where I’m working, feel free to propose more things to improve or cover more casuistic to make this process more robust. 
+This is an initial work that it’s already working on my current job, feel free to propose more things to improve or cover more casuistic to make this pipeline more robust. 
 
 Some other things that I have in my mind are:
 

@@ -1,15 +1,13 @@
-{% macro deploy_snowflake_stages(node, storage_prov='aws') -%}
+{% macro deploy_snowflake_stages(node, storage_prov='aws', landing_schema = 'landing') -%}
     
     -- depends_on: {{ ref('seed_snowflake_stages') }}
     
     {# Important Parameters #}
     {%- set env= env_var('DBT_ENV_NAME') -%}                {# Databse environment (dev, qa, prod) #}
     {%- set cloud_location=[] -%}                           {# List of bucket folder URLs #}
-    {%- set database_name = 'db_' ~ env ~ '.landing.' -%}   {# Database and schema (landing) #}
-    {%- set storage_prefix = '' -%}                         {# For AWS, adding the ARN of the bucket role #}
-
+    {%- set database_name = 'db_' ~ env ~ '.' ~ landing_schema ~ '.' -%}   {# Database and schema (landing) #}
+    
     {% if storage_prov == 'aws' %}
-        {%- set storage_prefix = 's3' -%}
         {%- set bucket_name = 's3://snowflake-data-repository-'~env~'/'  -%}
     {% else %}
         {# Include your other buckets from other cloud providers #}
@@ -56,7 +54,7 @@
         {# ########################### #}
         {%- for row in res_snowflake_stages -%}
 
-            {%- set stage_name = 'landing_stage_' ~ storage_prov ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
+            {%- set stage_name = landing_schema ~ '_stage_' ~ storage_prov ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
 
             {%- set drop_stage -%}
                 drop stage if exists {{ database_name }}{{ stage_name }}

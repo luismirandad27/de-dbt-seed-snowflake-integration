@@ -1,11 +1,11 @@
-{% macro copy_staged_files_into_tables(node, schema = 'landing') -%}
+{% macro copy_staged_files_into_tables(node, schema_name = 'landing') -%}
 
     -- depends_on: {{ ref('seed_snowflake_stages') }}
     -- depends_on: {{ ref('seed_snowflake_raw_table_columns') }}
 
     {# Create the array of storage stages for the cloud storage provider  #}
     {%- set env= env_var('DBT_ENV_NAME') -%}
-    {%- set database_name = 'db_' ~ env ~ '.' ~ schema -%}
+    {%- set database_name = 'db_' ~ env ~ '.' ~ schema_name -%}
 
     {# Creating the Storage Integration #}
     {%- set query -%}
@@ -21,7 +21,7 @@
 
         {%- set file_format = row[3] -%}
 
-        {%- set stage_name = {{ schema }} ~ '_stage_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
+        {%- set stage_name = {{ schema_name }} ~ '_stage_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
 
         {%- set table_name = row[1] ~ '_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ row[4] -%}
 

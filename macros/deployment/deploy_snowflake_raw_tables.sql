@@ -1,10 +1,9 @@
-{% macro deploy_snowflake_raw_tables(node, storage_prov='aws') -%}
+{% macro deploy_snowflake_raw_tables(node, storage_prov='aws', landing_schema_name = 'landing') -%}
     
     -- depends_on: {{ ref('seed_snowflake_raw_table_columns') }}
 
     {%- set database_name = 'db_' ~ env_var('DBT_ENV_NAME') -%}
-    {%- set schema = 'landing'-%}
-
+    
     {# Getting the list of sources to create #}
     {%- set query -%}
         select 
@@ -27,7 +26,7 @@
 
         {# Re-create table query #}
         {%- set drop_table -%}
-            drop table if exists {{database_name}}.landing.{{table_name}}
+            drop table if exists {{database_name}}.{{landing_schema_name}}.{{table_name}}
         {%- endset -%}
 
         {%- set res_snowflake_stage_drop = run_query(drop_table) -%}
@@ -37,7 +36,7 @@
             {%- set create_raw_table -%}
                 
                 {# It's not required to get the list of columns #}
-                create or replace table {{database_name}}.landing.{{table_name}}
+                create or replace table {{database_name}}.{{landing_schema_name}}.{{table_name}}
                 (   
                     metadata_filename text,
                     metadata_file_row_number number,
@@ -75,7 +74,7 @@
 
                 {%- set create_table -%}
 
-                    create or replace table {{database_name}}.landing.{{table_name}}
+                    create or replace table {{database_name}}.{{landing_schema_name}}.{{table_name}}
                     (   
                         metadata_filename text,
                         metadata_file_row_number number,
