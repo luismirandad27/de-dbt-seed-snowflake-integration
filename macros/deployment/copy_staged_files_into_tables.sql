@@ -4,8 +4,8 @@
     -- depends_on: {{ ref('seed_snowflake_raw_table_columns') }}
 
     {# Create the array of storage stages for the cloud storage provider  #}
-    {%- set env= env_var('DBT_ENV_NAME') -%}
-    {%- set database_name = 'db_' ~ env ~ '.' ~ schema_name -%}
+    {%- set env = env_var("DBT_ENV_NAME") -%}
+    {%- set database_schema_name = env_var("DBT_DB_NAME") ~ '.' ~ schema_name -%}
 
     {# Creating the Storage Integration #}
     {%- set query -%}
@@ -21,7 +21,7 @@
 
         {%- set file_format = row[3] -%}
 
-        {%- set stage_name = {{ schema_name }} ~ '_stage_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
+        {%- set stage_name = schema_name ~ '_stage_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
 
         {%- set table_name = row[1] ~ '_' ~ row[2] ~ '_' ~ row[3] ~ '_' ~ row[4] -%}
 
@@ -33,14 +33,14 @@
             {%- set has_outer_array = row[6]-%}
 
             {%- set drop_file_format -%}
-                drop file format if exists {{ database_name }}.json_format_array_temp_{{row[4]}}
+                drop file format if exists {{ database_schema_name }}.json_format_array_temp_{{row[4]}}
             {%- endset -%}
 
             {%- set temp_file_format = run_query(drop_file_format) -%}
 
             {# Create an json format adhoc for this copy procedure #}
             {%- set create_file_format -%}
-                create file format {{ database_name }}.json_format_array_temp_{{row[4]}}
+                create file format {{ database_schema_name }}.json_format_array_temp_{{row[4]}}
                 type = 'JSON'
                 {%- if has_outer_array == 1 -%}
                     strip_outer_array = true
@@ -51,7 +51,7 @@
             
             {%- set copy_into_data -%}
                 {# Run copy into #}
-                copy into {{ database_name }}.{{ table_name }} (
+                copy into {{ database_schema_name }}.{{ table_name }} (
                     metadata_filename,
                     metadata_file_row_number,
                     metadata_file_content_key,
@@ -71,14 +71,14 @@
                             t.$1,
                             current_timestamp()
                         FROM
-                            @{{ database_name }}.{{ stage_name }} (file_format => {{ database_name }}.json_format_array_temp_{{row[4]}} ) t
+                            @{{ database_schema_name }}.{{ stage_name }} (file_format => {{ database_schema_name }}.json_format_array_temp_{{row[4]}} ) t
                     );
             {%- endset -%}
 
             {%- set copy_into_temp = run_query(copy_into_data) -%}
 
             {%- set drop_file_format -%}
-                drop file format if exists {{ database_name }}.json_format_array_temp_{{row[4]}}
+                drop file format if exists {{ database_schema_name }}.json_format_array_temp_{{row[4]}}
             {%- endset -%}
 
             {%- set temp_file_format = run_query(drop_file_format) -%}
@@ -94,14 +94,14 @@
             {%- set has_outer_array = row[6]-%}
 
             {%- set drop_file_format -%}
-                drop file format if exists {{ database_name }}.csv_format_array_temp_{{row[4]}}
+                drop file format if exists {{ database_schema_name }}.csv_format_array_temp_{{row[4]}}
             {%- endset -%}
 
             {%- set temp_file_format = run_query(drop_file_format) -%}
 
             {# Create an csv format adhoc for this copy procedure #}
             {%- set create_file_format -%}
-                create file format {{ database_name }}.csv_format_array_temp_{{row[4]}}
+                create file format {{ database_schema_name }}.csv_format_array_temp_{{row[4]}}
                 type = 'CSV'
                 field_delimiter = '{{ delimiter }}'
                 record_delimiter = '\n'
@@ -130,7 +130,7 @@
                 {# Create query #}
                 {%- set copy_stage_data -%}
 
-                    copy into {{ database_name }}.{{ table_name }} 
+                    copy into {{ database_schema_name }}.{{ table_name }} 
                     from
                         (
                             SELECT
@@ -142,7 +142,7 @@
                                 {{row_col[0]}}
                                 current_timestamp()
                             FROM
-                                @{{ database_name }}.{{ stage_name }} (file_format => {{ database_name }}.csv_format_array_temp_{{row[4]}} ) t
+                                @{{ database_schema_name }}.{{ stage_name }} (file_format => {{ database_schema_name }}.csv_format_array_temp_{{row[4]}} ) t
                         );
 
                 {%- endset -%}
@@ -152,7 +152,7 @@
             {%- endfor -%}
 
             {%- set drop_file_format -%}
-                drop file format if exists {{ database_name }}.csv_format_array_temp_{{row[4]}}
+                drop file format if exists {{ database_schema_name }}.csv_format_array_temp_{{row[4]}}
             {%- endset -%}
 
             {%- set temp_file_format = run_query(drop_file_format) -%}

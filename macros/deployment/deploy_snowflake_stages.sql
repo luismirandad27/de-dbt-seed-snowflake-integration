@@ -1,11 +1,12 @@
-{% macro deploy_snowflake_stages(node, storage_prov='aws', landing_schema = 'landing') -%}
+{% macro deploy_snowflake_stages(node, storage_prov='aws', landing_schema_name = 'landing') -%}
     
     -- depends_on: {{ ref('seed_snowflake_stages') }}
     
     {# Important Parameters #}
-    {%- set env= env_var('DBT_ENV_NAME') -%}                {# Databse environment (dev, qa, prod) #}
-    {%- set cloud_location=[] -%}                           {# List of bucket folder URLs #}
-    {%- set database_name = 'db_' ~ env ~ '.' ~ landing_schema ~ '.' -%}   {# Database and schema (landing) #}
+    {%- set env= env_var('DBT_ENV_NAME') -%}                                {# Database environment (dev, qa, prod) #}
+    {%- set database_name= env_var('DBT_DB_NAME') -%}                       {# Database environment (dev, qa, prod) #}
+    {%- set cloud_location=[] -%}                                           {# List of bucket folder URLs #}
+    {%- set database_schema_name = database_name ~ '.' ~ landing_schema_name ~ '.' -%}    {# Database and schema (landing) #}
     
     {% if storage_prov == 'aws' %}
         {%- set bucket_name = 's3://snowflake-data-repository-'~env~'/'  -%}
@@ -54,10 +55,10 @@
         {# ########################### #}
         {%- for row in res_snowflake_stages -%}
 
-            {%- set stage_name = landing_schema ~ '_stage_' ~ storage_prov ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
+            {%- set stage_name = landing_schema_name ~ '_stage_' ~ storage_prov ~ '_' ~ row[3] ~ '_' ~ env ~ '_' ~ row[4] -%}
 
             {%- set drop_stage -%}
-                drop stage if exists {{ database_name }}{{ stage_name }}
+                drop stage if exists {{ database_schema_name }}{{ stage_name }}
             {% endset %}
 
             {%- set result = run_query(drop_stage) -%}
@@ -66,7 +67,7 @@
 
             {%- set create_stage -%}
 
-                create stage {{ database_name }}{{stage_name}}
+                create stage {{ database_schema_name }}{{stage_name}}
                 url = {{ url_name }}
                 storage_integration = {{ storage_int_name }}
 

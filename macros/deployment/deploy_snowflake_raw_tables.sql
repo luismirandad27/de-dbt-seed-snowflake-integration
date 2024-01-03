@@ -2,7 +2,7 @@
     
     -- depends_on: {{ ref('seed_snowflake_raw_table_columns') }}
 
-    {%- set database_name = 'db_' ~ env_var('DBT_ENV_NAME') -%}
+    {%- set database_name = env_var('DBT_DB_NAME') -%}
     
     {# Getting the list of sources to create #}
     {%- set query -%}

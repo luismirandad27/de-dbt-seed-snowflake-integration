@@ -19,7 +19,20 @@ Highlighted advantages of this initiative include:
     
     If you want to use another name, you can change the prefix, but I suggest to keep the environment name (dev, qa, prod) due we can use environmental variables on dbt cloud to manage the deployments.
 3. For raw data, create an schema on each database called `landing`. This schema will store all the tables connected to external sources, you can use another name instead.
-4. Modify your dbt_project.yml file to enable the use of special characters in dbt seed, particularly focusing on accommodating the comma character:
+4. On each database create a **storage integration** with the specific cloud storage provider. On this repository, I'm connecting with AWS S3 Buckets
+
+    ```sql
+        CREATE STORAGE INTEGRATION storage_integration_aws_{environment}
+        TYPE = EXTERNAL_STAGE
+        STORAGE_PROVIDER = 'S3'
+        ENABLED = TRUE
+        STORAGE_AWS_ROLE_ARN = '{your_role_arn}'
+        STORAGE_ALLOWED_LOCATIONS = ('s3://dummy-bucket/');
+    ```
+    To make this storage integration working with this repository, the allowed values for the {environment} suffix are: dev, qa and prod. Finally, to enable the communication between your snowflake account and the AWS S3 Buckets, you can follow
+    this link: [Link S3 with Storage Integration](https://docs.snowflake.com/en/user-guide/data-load-s3-config-storage-integration)
+
+5. Modify your dbt_project.yml file to enable the use of special characters in dbt seed, particularly focusing on accommodating the comma character:
     
     ```yaml
     seeds:
@@ -27,7 +40,7 @@ Highlighted advantages of this initiative include:
         +delimiter: ";"
     ```
     
-5. The following are the seeds you need to create:
+6. The following are the seeds you need to create:
 
     **seed_snowflake_stages**
     
