@@ -1,0 +1,3 @@
+id;type_stage;cloud_storage_provider;source_file_type;stage_name_suffix;delimiter;flg_strip_array;flg_active;flg_move_data;flg_recreate
+earth_meteorite_landings_nasa;raw;aws;json;earth_meteorite_landings_nasa;NA;1;1;1;1
+companies_conference_nasa;raw;aws;csv;companies_conference_nasa;,;0;1;1;1
