@@ -1,0 +1,7 @@
+id;column_position;column_name
+companies_conference_nasa;1;company
+companies_conference_nasa;2;position
+companies_conference_nasa;3;country
+companies_conference_nasa;4;email
+companies_conference_nasa;5;domain
+companies_conference_nasa;6;location
